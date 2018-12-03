@@ -1,0 +1,15 @@
+{
+  "http": {
+    "domain": "visualizer.iota-tangle.io",
+    "address": "0.0.0.0:9000",
+    "assets": {
+      "static": "./assets",
+      "favicon": "./assets/img/favicon.ico",
+      "html": "./assets/html"
+    },
+    "logRequests": false
+  },
+  "zmq": {
+    "address": "tcp://nodes.spamnet.iota.org:5556"
+  }
+}

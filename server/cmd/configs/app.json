@@ -1,0 +1,6 @@
+{
+  "name": "app",
+  "dev": false,
+  "verbose": true,
+  "feedLogInterval": 60
+}

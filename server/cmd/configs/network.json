@@ -1,0 +1,15 @@
+{
+  "http": {
+    "domain": "example.com",
+    "address": "0.0.0.0:9000",
+    "assets": {
+      "static": "../../client",
+      "favicon": "../../client/img/favicon.ico",
+      "html": "../../client/html"
+    },
+    "logRequests": false
+  },
+  "zmq": {
+    "address": "tcp://trinity.iota-tangle.io:5556"
+  }
+}

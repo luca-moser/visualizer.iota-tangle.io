@@ -1,0 +1,6 @@
+{
+  "name": "tangle-visualizer",
+  "dev": false,
+  "verbose": false,
+  "feedLogInterval": 60
+}

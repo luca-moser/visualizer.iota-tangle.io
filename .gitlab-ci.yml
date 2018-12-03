@@ -1,0 +1,20 @@
+stages:
+  - build
+
+variables:
+  GODIR: "gitlab.com/luca-moser/tangle-visualizer"
+  IMAGE_NAME: "lucamoser/tangle-visualizer"
+
+build:
+  stage: build
+  script:
+    - "pwd"
+    - "whoami"
+    - "docker run --rm -v \"$PWD\":/usr/src/app -w /usr/src/app node:8.11.2-slim /bin/bash -c \"npm i -g yarn;yarn install;npm run build:prod;\""
+    - "docker run --rm -v \"$PWD\":/go/src/${GODIR} -w /go/src/${GODIR}/server/cmd golang:1.10.2-stretch /bin/bash -c \"chmod +x ./setup.sh && ./setup.sh\""
+    - "chmod 770 server/cmd/visualizer"
+    - "chmod 770 client/js/app.js"
+    - "chmod 770 client/js/vendor.js"
+    - "docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}"
+    - "docker build -t ${IMAGE_NAME}:latest ."
+    - "docker push ${IMAGE_NAME}:latest"
