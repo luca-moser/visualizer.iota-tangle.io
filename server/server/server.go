@@ -5,10 +5,10 @@ import (
 	"github.com/facebookgo/inject"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
-	"gitlab.com/luca-moser/tangle-visualizer/server/controllers"
-	"gitlab.com/luca-moser/tangle-visualizer/server/routers"
-	"gitlab.com/luca-moser/tangle-visualizer/server/server/config"
-	"gitlab.com/luca-moser/tangle-visualizer/server/utilities"
+	"github.com/luca-moser/visualizer.iota-tangle.io/server/controllers"
+	"github.com/luca-moser/visualizer.iota-tangle.io/server/routers"
+	"github.com/luca-moser/visualizer.iota-tangle.io/server/server/config"
+	"github.com/luca-moser/visualizer.iota-tangle.io/server/utilities"
 	"gopkg.in/mgo.v2"
 	"html/template"
 	"io"
@@ -125,7 +125,11 @@ func (server *Server) Start() {
 	logger.Info("initialised routers")
 
 	// boot up server
-	go e.Start(httpConfig.Address)
+	go func() {
+		if err := e.Start(httpConfig.Address); err != nil {
+			panic(err)
+		}
+	}()
 
 	// finish
 	delta := (time.Now().UnixNano() - start) / 1000000

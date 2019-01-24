@@ -5,7 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"gitlab.com/luca-moser/tangle-visualizer/server/server"
+	"github.com/luca-moser/visualizer.iota-tangle.io/server/server"
 )
 
 func main() {

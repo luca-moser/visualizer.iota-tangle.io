@@ -2,7 +2,7 @@ stages:
   - build
 
 variables:
-  GODIR: "gitlab.com/luca-moser/tangle-visualizer"
+  GODIR: "github.com/luca-moser/visualizer.iota-tangle.io"
   IMAGE_NAME: "lucamoser/tangle-visualizer"
 
 build:

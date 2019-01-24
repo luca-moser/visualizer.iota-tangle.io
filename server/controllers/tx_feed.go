@@ -1,14 +1,14 @@
 package controllers
 
 import (
-	"github.com/pebbe/zmq4"
-	"gitlab.com/luca-moser/tangle-visualizer/server/server/config"
-	"strings"
-	"strconv"
-	"sync"
-	"gitlab.com/luca-moser/tangle-visualizer/server/utilities"
-	"gopkg.in/inconshreveable/log15.v2"
 	"fmt"
+	"github.com/luca-moser/visualizer.iota-tangle.io/server/server/config"
+	"github.com/luca-moser/visualizer.iota-tangle.io/server/utilities"
+	"github.com/pebbe/zmq4"
+	"gopkg.in/inconshreveable/log15.v2"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -54,9 +54,10 @@ func must(err error) {
 type MsgType byte
 
 const (
-	TX      MsgType = iota
+	TX MsgType = iota
 	MS
 	CONF_TX
+	RW_TX
 )
 
 var msMsgReceived = 0
@@ -113,12 +114,13 @@ func (ctrl *TxFeedCtrl) startTxFeed() {
 			continue
 		}
 
+		/*
 		// add transaction to bucket
 		var b *Bucket
 		var has bool
 		b, has = buckets[tx.BundleHash]
 		if !has {
-			b := &Bucket{TXs: []*Transaction{}}
+			b = &Bucket{TXs: []*Transaction{}}
 			b.TXs = append(b.TXs, tx)
 			buckets[tx.BundleHash] = b
 		} else {
@@ -127,6 +129,7 @@ func (ctrl *TxFeedCtrl) startTxFeed() {
 		if b.Full() {
 			fmt.Printf("new bundle bucket complete: %s\n", b.TXs[0].BundleHash)
 		}
+		*/
 
 		txMsgReceived++
 		for _, subscriber := range ctrl.subscribers {
@@ -198,6 +201,39 @@ func (ctrl *TxFeedCtrl) startConfirmationFeed() {
 		for _, subscriber := range ctrl.subscribers {
 			select {
 			case subscriber <- Msg{Type: CONF_TX, Obj: confTx}:
+				break
+			default:
+			}
+		}
+	}
+}
+
+type RWTX struct {
+	Hash string `json:"hash"`
+}
+
+func (ctrl *TxFeedCtrl) startRWFeed() {
+	address := ctrl.Configuration.Net.ZMQ.Address
+
+	socket, err := zmq4.NewSocket(zmq4.SUB)
+	must(err)
+	socket.SetSubscribe("mctn")
+	err = socket.Connect(address)
+	must(err)
+
+	ctrl.logger.Info("started random walk feed")
+	for {
+		msg, err := socket.Recv(0)
+		must(err)
+		msgSplit := strings.Split(msg, " ")
+		if len(msgSplit) != 7 {
+			continue
+		}
+		confirmedMsgReceived++
+		rwTx := RWTX{msgSplit[2]}
+		for _, subscriber := range ctrl.subscribers {
+			select {
+			case subscriber <- Msg{Type: RW_TX, Obj: rwTx}:
 				break
 			default:
 			}

@@ -27,8 +27,8 @@ type Router interface {
 }
 
 type IndexRouter struct {
-	WebEngine          *echo.Echo `inject:""`
-	Dev                bool       `inject:"dev"`
+	WebEngine *echo.Echo `inject:""`
+	Dev       bool       `inject:"dev"`
 }
 
 func (indexRouter *IndexRouter) Init() {

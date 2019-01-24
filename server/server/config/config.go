@@ -63,7 +63,7 @@ type NetConfig struct {
 type WebConfig struct {
 	Domain  string
 	Address string
-	Assets struct {
+	Assets  struct {
 		Static  string
 		HTML    string
 		Favicon string

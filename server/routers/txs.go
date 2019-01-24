@@ -1,9 +1,9 @@
 package routers
 
 import (
-	"github.com/labstack/echo"
 	"github.com/gorilla/websocket"
-	"gitlab.com/luca-moser/tangle-visualizer/server/controllers"
+	"github.com/labstack/echo"
+	"github.com/luca-moser/visualizer.iota-tangle.io/server/controllers"
 )
 
 type TxsRouter struct {

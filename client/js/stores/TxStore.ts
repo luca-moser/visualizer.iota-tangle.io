@@ -1,4 +1,4 @@
-import {action, observable, ObservableMap, runInAction} from 'mobx';
+import {observable, ObservableMap, runInAction} from 'mobx';
 import {addConfTx, addMilestone, addTx} from "../comps/canvas";
 
 function getRandomInt(min, max) {
@@ -20,6 +20,8 @@ export class Transaction {
     branch_tx_hash: string;
     arrival_time: string;
     tag: string;
+    isConfirmed: boolean;
+    isMilestone: boolean;
 }
 
 export enum MsgType {
@@ -50,7 +52,7 @@ export class TxStore {
             } catch (err) {
                 return;
             }
-            switch(msg.type) {
+            switch (msg.type) {
                 case MsgType.TX:
                     runInAction('add tx', () => {
                         addTx(msg.obj);

@@ -1,10 +1,10 @@
 package utilities
 
 import (
-	"os"
-	"gopkg.in/inconshreveable/log15.v2"
 	"fmt"
 	"github.com/mattn/go-colorable"
+	"gopkg.in/inconshreveable/log15.v2"
+	"os"
 )
 
 var Debug = false
@@ -32,4 +32,3 @@ func GetLogger(name string) (log15.Logger, error) {
 	logger.SetHandler(handler)
 	return logger, nil
 }
-

@@ -33,7 +33,7 @@ ldconfig -p | grep zmq
 
 # go back to server directory
 echo "going back into visualizer directory"
-cd /go/src/gitlab.com/luca-moser/tangle-visualizer/server/cmd
+cd /go/src/github.com/luca-moser/visualizer.iota-tangle.io/server/cmd
 echo "building visualizer binary"
 CGO_ENABLED=1 go build -ldflags="-s -w" -v -o visualizer
 
