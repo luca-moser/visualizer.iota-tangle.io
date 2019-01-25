@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"container/ring"
 	"fmt"
 	"github.com/luca-moser/visualizer.iota-tangle.io/server/server/config"
 	"github.com/luca-moser/visualizer.iota-tangle.io/server/utilities"
@@ -13,11 +14,14 @@ import (
 )
 
 type TxFeedCtrl struct {
-	Configuration *config.Configuration `inject:""`
-	subMu         sync.Mutex
-	subscribers   map[int]chan interface{}
-	nextSubId     int
-	logger        log15.Logger
+	Configuration   *config.Configuration `inject:""`
+	subMu           sync.Mutex
+	subscribers     map[int]chan interface{}
+	nextSubId       int
+	logger          log15.Logger
+	txBuffer        *ring.Ring
+	milestoneBuffer *ring.Ring
+	confirmedBuffer *ring.Ring
 }
 
 func (ctrl *TxFeedCtrl) Init() error {
@@ -29,10 +33,15 @@ func (ctrl *TxFeedCtrl) Init() error {
 	major, minor, patch := zmq4.Version()
 	ctrl.logger.Info(fmt.Sprintf("running ZMQ %d.%d.%d\n", major, minor, patch))
 
+	ctrl.txBuffer = ring.New(5000)
+	ctrl.milestoneBuffer = ring.New(500)
+	ctrl.confirmedBuffer = ring.New(5000)
+
 	// start feeds
 	go ctrl.startTxFeed()
 	go ctrl.startMilestoneFeed()
 	go ctrl.startConfirmationFeed()
+	go ctrl.startRWFeed()
 	go ctrl.startLog()
 	return err
 }
@@ -114,31 +123,19 @@ func (ctrl *TxFeedCtrl) startTxFeed() {
 			continue
 		}
 
-		/*
-		// add transaction to bucket
-		var b *Bucket
-		var has bool
-		b, has = buckets[tx.BundleHash]
-		if !has {
-			b = &Bucket{TXs: []*Transaction{}}
-			b.TXs = append(b.TXs, tx)
-			buckets[tx.BundleHash] = b
-		} else {
-			b.TXs = append(b.TXs, tx)
-		}
-		if b.Full() {
-			fmt.Printf("new bundle bucket complete: %s\n", b.TXs[0].BundleHash)
-		}
-		*/
-
+		m := Msg{Type: TX, Obj: tx}
+		ctrl.txBuffer.Value = m
+		ctrl.txBuffer = ctrl.txBuffer.Next()
 		txMsgReceived++
+
+		ctrl.subMu.Lock()
 		for _, subscriber := range ctrl.subscribers {
 			select {
-			case subscriber <- Msg{Type: TX, Obj: tx}:
-				break
+			case subscriber <- m:
 			default:
 			}
 		}
+		ctrl.subMu.Unlock()
 	}
 }
 
@@ -163,15 +160,22 @@ func (ctrl *TxFeedCtrl) startMilestoneFeed() {
 		if len(msgSplit) != 2 {
 			continue
 		}
-		msMsgReceived++
+
 		milestone := Milestone{msgSplit[1]}
+		m := Msg{Type: MS, Obj: milestone}
+		msMsgReceived++
+
+		ctrl.milestoneBuffer.Value = m
+		ctrl.milestoneBuffer = ctrl.milestoneBuffer.Next()
+
+		ctrl.subMu.Lock()
 		for _, subscriber := range ctrl.subscribers {
 			select {
-			case subscriber <- Msg{Type: MS, Obj: milestone}:
-				break
+			case subscriber <- m:
 			default:
 			}
 		}
+		ctrl.subMu.Unlock()
 	}
 }
 
@@ -196,28 +200,45 @@ func (ctrl *TxFeedCtrl) startConfirmationFeed() {
 		if len(msgSplit) != 7 {
 			continue
 		}
-		confirmedMsgReceived++
+
 		confTx := ConfTx{msgSplit[2]}
+		m := Msg{Type: CONF_TX, Obj: confTx}
+		ctrl.confirmedBuffer.Value = m
+		ctrl.confirmedBuffer = ctrl.confirmedBuffer.Next()
+		confirmedMsgReceived++
+
+		ctrl.subMu.Lock()
 		for _, subscriber := range ctrl.subscribers {
 			select {
-			case subscriber <- Msg{Type: CONF_TX, Obj: confTx}:
-				break
+			case subscriber <- m:
 			default:
 			}
 		}
+		ctrl.subMu.Unlock()
 	}
 }
 
 type RWTX struct {
 	Hash string `json:"hash"`
+	Type int    `json:"type"`
 }
+
+const (
+	RW_ENTRY = iota
+	RW_APPROVER
+	RW_NEXT
+	RW_TIP
+)
 
 func (ctrl *TxFeedCtrl) startRWFeed() {
 	address := ctrl.Configuration.Net.ZMQ.Address
 
 	socket, err := zmq4.NewSocket(zmq4.SUB)
 	must(err)
-	socket.SetSubscribe("mctn")
+	socket.SetSubscribe("walkerentry")
+	socket.SetSubscribe("walkernext")
+	socket.SetSubscribe("walkerapprover")
+	socket.SetSubscribe("walkertip")
 	err = socket.Connect(address)
 	must(err)
 
@@ -226,18 +247,30 @@ func (ctrl *TxFeedCtrl) startRWFeed() {
 		msg, err := socket.Recv(0)
 		must(err)
 		msgSplit := strings.Split(msg, " ")
-		if len(msgSplit) != 7 {
+		if len(msgSplit) != 2 {
 			continue
 		}
-		confirmedMsgReceived++
-		rwTx := RWTX{msgSplit[2]}
+
+		var rwTx *RWTX
+		switch msgSplit[0] {
+		case "walkerentry":
+			rwTx = &RWTX{msgSplit[1], RW_ENTRY}
+		case "walkernext":
+			rwTx = &RWTX{msgSplit[1], RW_APPROVER}
+		case "walkerapprover":
+			rwTx = &RWTX{msgSplit[1], RW_NEXT}
+		case "walkertip":
+			rwTx = &RWTX{msgSplit[1], RW_TIP}
+		}
+
+		ctrl.subMu.Lock()
 		for _, subscriber := range ctrl.subscribers {
 			select {
-			case subscriber <- Msg{Type: RW_TX, Obj: rwTx}:
-				break
+			case subscriber <- Msg{Type: RW_TX, Obj: *rwTx}:
 			default:
 			}
 		}
+		ctrl.subMu.Unlock()
 	}
 }
 
@@ -245,11 +278,21 @@ func (ctrl *TxFeedCtrl) Subscribe() (int, <-chan interface{}) {
 	ctrl.subMu.Lock()
 	defer ctrl.subMu.Unlock()
 	ctrl.nextSubId++
-	channel := make(chan interface{})
+	channel := make(chan interface{}, 100)
 	ctrl.subscribers[ctrl.nextSubId] = channel
+	go func() {
+		ctrl.txBuffer.Do(func(m interface{}) {
+			channel <- m
+		})
+		ctrl.milestoneBuffer.Do(func(m interface{}) {
+			channel <- m
+		})
+		ctrl.confirmedBuffer.Do(func(m interface{}) {
+			channel <- m
+		})
+	}()
 	return ctrl.nextSubId, channel
 }
-
 func (ctrl *TxFeedCtrl) RemoveSubscriber(id int) {
 	ctrl.subMu.Lock()
 	defer ctrl.subMu.Unlock()

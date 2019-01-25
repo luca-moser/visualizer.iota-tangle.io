@@ -1,5 +1,6 @@
 import {observable, ObservableMap, runInAction} from 'mobx';
-import {addConfTx, addMilestone, addTx} from "../comps/canvas";
+import {addConfTx, addMilestone, addTx, markRW} from "../comps/canvas";
+import * as async from 'async';
 
 function getRandomInt(min, max) {
     min = Math.ceil(min);
@@ -22,10 +23,21 @@ export class Transaction {
     tag: string;
     isConfirmed: boolean;
     isMilestone: boolean;
+    isRWTip: boolean;
+    isRWApprover: boolean;
+    isRWEntry: boolean;
+    isRWNext: boolean;
 }
 
 export enum MsgType {
-    TX, MS, CONF_TX
+    TX, MS, CONF_TX, RW_TX
+}
+
+export enum RWType {
+    RW_ENTRY,
+    RW_APPROVER,
+    RW_NEXT,
+    RW_TIP,
 }
 
 export class Msg {
@@ -45,6 +57,8 @@ export class TxStore {
     connectWebSocket() {
         let wsProtocol = location.protocol === 'https:' ? 'wss://' : 'ws://';
         this.ws = new WebSocket(`${wsProtocol}${location.host}/api/txs`);
+        let tipwalkobjs;
+        let currentStep;
         this.ws.onmessage = (e: MessageEvent) => {
             let msg: Msg = null;
             try {
@@ -54,19 +68,43 @@ export class TxStore {
             }
             switch (msg.type) {
                 case MsgType.TX:
-                    runInAction('add tx', () => {
-                        addTx(msg.obj);
-                    });
+                    addTx(msg.obj);
                     break;
                 case MsgType.MS:
-                    runInAction('add ms', () => {
-                        addMilestone(msg.obj.hash);
-                    });
+                    addMilestone(msg.obj.hash);
                     break;
                 case MsgType.CONF_TX:
-                    runInAction('add conf tx', () => {
-                        addConfTx(msg.obj.hash);
-                    });
+                    addConfTx(msg.obj.hash);
+                    break;
+
+                case MsgType.RW_TX:
+                    switch (msg.obj.type) {
+                        case RWType.RW_ENTRY:
+                            tipwalkobjs = []; // reset
+                            currentStep = [msg.obj];
+                            break;
+                        case RWType.RW_TIP:
+                            currentStep.push(msg.obj);
+                            let funcs = tipwalkobjs.map(step => {
+                                return function (cb) {
+                                    setTimeout(() => {
+                                        step.forEach(obj => markRW(obj.hash, obj.type));
+                                        cb();
+                                    }, 100);
+                                };
+                            });
+                            async.series(funcs);
+                            break;
+                        case RWType.RW_APPROVER:
+                            currentStep.push(msg.obj);
+                            break;
+                        case RWType.RW_NEXT:
+                            tipwalkobjs.push(currentStep);
+                            currentStep = [];
+                            currentStep.push(msg.obj);
+                            break;
+
+                    }
                     break;
             }
         };

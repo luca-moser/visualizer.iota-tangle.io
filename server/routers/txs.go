@@ -25,14 +25,16 @@ func (txsRouter *TxsRouter) Init() {
 		if err != nil {
 			return err
 		}
-		defer ws.Close()
 
 		writer := make(chan interface{})
 		stop := make(chan struct{})
-		defer close(stop) // auto-free writer, poller
 
 		feedId, feed := feedCtrl.Subscribe()
-		defer feedCtrl.RemoveSubscriber(feedId)
+		ws.SetCloseHandler(func(code int, text string) error {
+			close(stop)
+			feedCtrl.RemoveSubscriber(feedId)
+			return nil
+		})
 
 		// sync WS writer
 		go func() {
@@ -56,7 +58,6 @@ func (txsRouter *TxsRouter) Init() {
 				select {
 				case tx, ok := <-feed:
 					if !ok {
-						// timeout was reached in controller for metric send
 						return
 					}
 					writer <- tx
