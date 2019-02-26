@@ -1,35 +1,50 @@
-FROM ubuntu:18.04
-MAINTAINER Luca Moser <moser.luca@gmail.com>
+FROM golang:latest
 
-# install zeromq
-RUN apt-get update && apt-get install -y wget libtool pkg-config build-essential autoconf automake uuid-dev
-RUN cd /opt && wget https://github.com/zeromq/libzmq/releases/download/v4.2.2/zeromq-4.2.2.tar.gz \
-&& tar xvzf zeromq-4.2.2.tar.gz \
-&& cd zeromq-4.2.2 && ./configure \
-&& make install && ldconfig
+ENV ZMQ_VERSION 4.1.4
 
-# create client directories
-RUN mkdir -p /app/assets/css && mkdir -p /app/assets/html \
-&& mkdir -p /app/assets/js && mkdir -p /app/assets/img
+# Install needed packages
+RUN apt-get update && apt-get install -y --fix-missing \
+    curl \
+    libtool \
+    pkg-config \
+    lxc \
+    build-essential \
+    autoconf \
+    automake \
+    && mkdir -p /tmp/zeromq \
+    && curl -SL http://download.zeromq.org/zeromq-$ZMQ_VERSION.tar.gz | tar zxC /tmp/zeromq \
+    && cd /tmp/zeromq/zeromq-$ZMQ_VERSION/ \
+    && ./configure --without-libsodium \
+    && make \
+    && make install \
+    && ldconfig \
+    && rm -rf /tmp/zeromq \
+    && apt-get purge -y \
+    curl \
+    libtool \
+    build-essential \
+    autoconf \
+    automake \
+    && apt-get clean && apt-get autoclean && apt-get -y autoremove
 
-# create server directories
-RUN mkdir -p /app/configs && mkdir -p /app/logs
+# Install Node.js
+RUN apt-get update && apt-get install -y --fix-missing \
+    curl \
+    sudo \
+    && curl -sL https://deb.nodesource.com/setup_11.x | sudo -E bash - \
+    && sudo apt-get install -y nodejs
 
-# copy server assets
-COPY server/cmd/visualizer                  /app/visualizer
-COPY server/cmd/configs/app_prod.json       /app/configs/app.json
-COPY server/cmd/configs/network_prod.json   /app/configs/network.json
+# Copy files
+COPY . /app
 
-# copy client assets
-COPY client/css/*           /app/assets/css/
-COPY client/img/*           /app/assets/img/
-COPY client/js/index.html   /app/assets/html/index.html
-COPY client/js/app.js       /app/assets/js/app.js
-COPY client/js/vendor.js    /app/assets/js/vendor.js
-
-# workdir and ports
+# Build server
 WORKDIR /app
+RUN go build server/cmd/app.go
+
+# Build client
+RUN npm install && npm run build:prod
+
 EXPOSE 9000
 
-# entrypoint
-ENTRYPOINT ["/app/visualizer"]
+WORKDIR /app/server/cmd
+ENTRYPOINT [ "go", "run", "app.go" ]
