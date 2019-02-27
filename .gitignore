@@ -1,5 +1,5 @@
 .idea/
-node_modules/
+client/node_modules/
 client/js/app.js
 client/js/vendor.js
 client/js/index.html

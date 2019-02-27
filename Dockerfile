@@ -34,15 +34,16 @@ RUN apt-get update && apt-get install -y --fix-missing \
     && curl -sL https://deb.nodesource.com/setup_11.x | sudo -E bash - \
     && sudo apt-get install -y nodejs
 
-# Copy files
-COPY . /app
-
 # Build server
-WORKDIR /app
-RUN go build server/cmd/app.go
+COPY ./server /app/server
+WORKDIR /app/server
+RUN go build cmd/app.go
 
 # Build client
-RUN npm install && npm run build:prod
+COPY ./client /app/client
+WORKDIR /app/client
+RUN npm install
+RUN npm run build:prod
 
 EXPOSE 9000
 

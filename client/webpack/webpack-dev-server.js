@@ -12,7 +12,7 @@ const devServerConfig = {
     lazy: false,
     disableHostCheck: true,
     headers: { 'Access-Control-Allow-Origin': '*' },
-    contentBase: path.join(__dirname, '../client'),
+    contentBase: path.join(__dirname, '..'),
     // need historyApiFallback to be able to refresh on dynamic route
     historyApiFallback: { disableDotRule: true },
     // pretty colors in console

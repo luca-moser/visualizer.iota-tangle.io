@@ -18,7 +18,7 @@ module.exports = env => {
                 'react-hot-loader/patch',
                 'webpack-dev-server/client?http://localhost:3000',
                 'webpack/hot/only-dev-server',
-                path.join(__dirname, '../client/js/entry.tsx')
+                path.join(__dirname, '../js/entry.tsx')
             ]),
             vendor: ['react', 'react-dom', 'mobx', 'mobx-react', 'tslib'],
         },
@@ -26,7 +26,7 @@ module.exports = env => {
         resolve: {
             modules: [
                 'node_modules',
-                path.resolve(__dirname, '..', 'client')
+                path.resolve(__dirname, '..')
             ],
             extensions: ['.ts', '.tsx', '.js', '.json', '.scss'],
         },
@@ -34,7 +34,7 @@ module.exports = env => {
         output: {
             filename: '[name].js',
             sourceMapFilename: '[name].map.js',
-            path: path.join(__dirname, '../client/js'),
+            path: path.join(__dirname, '../js'),
             publicPath: 'http://127.0.0.1:3000/'
         },
 
@@ -63,7 +63,7 @@ module.exports = env => {
                         {
                             loader: 'sass-loader',
                             options: {
-                                includePaths: ['../client'],
+                                includePaths: ['..'],
                             },
                         },
                     ]
@@ -84,12 +84,12 @@ module.exports = env => {
             new webpack.NamedModulesPlugin(),
 
             new HtmlWebpackPlugin({
-                template: path.join(__dirname, "../client/html/index.dev.html"),
+                template: path.join(__dirname, "../html/index.dev.html"),
                 alwaysWriteToDisk: true
             }),
 
             new HtmlWebpackHarddiskPlugin({
-                outputPath: path.join(__dirname, "../client/html"),
+                outputPath: path.join(__dirname, "../html"),
             }),
 
             new webpack.DefinePlugin({

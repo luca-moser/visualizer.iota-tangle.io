@@ -1,4 +1,4 @@
-module github.com/luca-moser/visualizer.iota-tangle.io
+module github.com/luca-moser/visualizer.iota-tangle.io/server
 
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
